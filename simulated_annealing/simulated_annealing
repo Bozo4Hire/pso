@@ -1,0 +1,130 @@
+import math
+import random
+import numpy as np
+import matplotlib.pyplot as plt
+from typing import List, Callable
+import optimization_functions as optF
+import time
+
+Solution = List[float]
+OptFunction = Callable[[Solution], float]
+
+def generateSolution(length : int, a : float, b: float) -> Solution:
+    return [np.random.uniform(a, b) for _ in range(length)]
+
+def simplePerturbation(solution: Solution, a : float, b: float) -> Solution:
+    i = random.randrange(len(solution))
+    solution[i] += np.random.uniform(-0.5, 0.5)
+    if solution[i] > b:
+        solution[i] = b
+    if solution[i] < a:
+        solution[i] = a
+    return solution
+
+def simulated_annealing(
+        objectiveFunc : OptFunction, 
+        solutionLen : int,
+        a : float,
+        b : float, 
+        temperature : float, 
+        coolingRate : float, 
+        stopingTemp : float,
+        restartTreshold : float) \
+            -> Solution:
+    
+    start = time.time()
+    iterations = np.array([])
+    temperatures = np.array([])
+    bestSolutions = np.array([])
+
+    initialTemp = temperature
+    initialSol = generateSolution(solutionLen, a, b)
+
+    curSol = initialSol
+    bestSol = initialSol
+    
+    k = 0
+    while temperature > stopingTemp:
+        k += 1
+        iterations = np.append(iterations, k)
+        temperatures = np.append(temperatures, temperature)
+
+        # Se perturban las componentes de la solución actual, dando como resultado una nueva solución
+        newSol = simplePerturbation(curSol.copy(), a, b)
+        curCost = objectiveFunc(curSol)
+        newCost = objectiveFunc(newSol)
+        
+        # Se calcula la distancia entre la nueva solución y la anterior
+        delta = newCost - curCost
+
+        # si la nueva solución es mejor la anterior, se reemplaza a la actual por la nueva
+        if newCost < curCost:
+            curSol = newSol
+            if newCost < objectiveFunc(bestSol):
+                bestSol = newSol
+
+        # si no es así, se decide si hacer el reemplazo o no de acuerdo a p(e^(-delta/temp))
+        else:
+            if random.random() < math.exp(-delta / temperature):
+                curSol = newSol
+
+            # de acuerdo a p(e^(-delta/temp)), se realiza un incremento a la tempretura
+            if random.random() < math.exp(-delta / temperature) and temperature < initialTemp:
+                temperature *= 1/coolingRate
+
+        # Con cada iteración, se reduce exponencialmente la temperatura de acuerdo a la razón especificada
+        # en la entrada de la función
+        temperature *= coolingRate
+
+        # Cuando se ha llegado a la mitad de la temperatura inticial y si el mejor resultado
+        # no supera al valor de treshold establecido, la temperatura se reinicia 
+        if temperature < initialTemp/2 and objectiveFunc(bestSol) > restartTreshold:
+            temperature = initialTemp
+
+        if temperature < initialTemp/4 and objectiveFunc(bestSol) > restartTreshold/2:
+            temperature = initialTemp/2
+
+        bestSolutions = np.append(bestSolutions, objectiveFunc(bestSol))
+
+    end = time.time()
+    print("\nSimulated Annealing\n")
+    print("Parámetros Inciales")
+    print("\tTemperatura inicial:", initialTemp)
+    print("\tTemperatura final:", stopingTemp)
+    print("\tRazón de enfriamiento (Exponential):", coolingRate)
+    print("\tValor de treshold para reiniciar:", restartTreshold)
+
+    print("\Resultados")
+    print("\tTotal de iteraciones:", k)
+    print(f"\tT total de ejecución: {end-start} s")
+    print("\tSolución Inicial:", initialSol)
+    print("\tValor de la función objetivo:", objectiveFunc(initialSol))
+    print("\n\tMejor Solución:", bestSol)
+    print("\tValor de la función objetivo:", objectiveFunc(bestSol))
+
+    # Grafica de temperaturas
+    plt.figure()
+    plt.plot(iterations,temperatures)
+    plt.title("Simulated Annealing")
+    plt.xlabel("Número de Iteración")
+    plt.ylabel("Temperatura")
+    plt.show()
+
+    # Grafica de Mejor Soluciones por iteracion
+    plt.figure()
+    plt.plot(iterations,bestSolutions)
+    plt.title("Simulated Annealing")
+    plt.xlabel("Número de Iteración")
+    plt.ylabel("E(S)")
+    plt.show()
+
+    return bestSol
+
+temperature = 200
+coolingRate = 0.95
+stopingTemp = 1e-12
+restartTreshold = 60
+
+simulated_annealing(optF.rastrigin, 5, -5.12, 5.12, temperature, coolingRate, stopingTemp, restartTreshold)
+simulated_annealing(optF.threeHumpCamel, 2, -5, 5, temperature, coolingRate, stopingTemp, restartTreshold)
+simulated_annealing(optF.rosenbrocksBanana, 2, -32, 32, temperature, coolingRate, stopingTemp, restartTreshold)
