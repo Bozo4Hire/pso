@@ -48,6 +48,7 @@ def pso(objectiveFunc: OptFunction,
         pbest = objectiveFunc(p)
 
         for i in range(0, len(cloud[0])):
+            # actualizamos pbest
             if costs[i] < pbest:
                 p = cloud[0][i]
 
@@ -68,6 +69,7 @@ def pso(objectiveFunc: OptFunction,
                      cloud[2][i] = cloud[0][x]
 
         for i in range(0, len(cloud[0])):
+            # actualizamos la funcion de velocidad y la posicion de cada particula 
             cloud[1][i] = velFuction(cloud[0][i], cloud[1][i], phi1, phi2, p, cloud[2][i], a, b)
             cloud[0][i] = np.add(cloud[0][i], cloud[1][i])
             
@@ -77,6 +79,7 @@ def pso(objectiveFunc: OptFunction,
                     cloud[0][i][j] = a
                 if cloud[0][i][j] > b:
                     cloud[0][i][j] = b
+
         print("Best:", p, " ", objectiveFunc(p))
     return cloud
 
