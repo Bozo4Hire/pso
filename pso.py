@@ -8,7 +8,7 @@ import time
 
 VelVector = List[float] 
 PosVector = List[float]
-PointCloud = Tuple [List[PosVector], List[VelVector], List[PosVector]]
+PointCloud = Tuple [List[PosVector], List[VelVector], List[PosVector], List[PosVector]]
 
 OptFunction = Callable[[PosVector], float]
 VelFunction = Callable[[PosVector, VelVector, float, float, PosVector, PosVector], VelVector]
@@ -16,17 +16,15 @@ VelFunction = Callable[[PosVector, VelVector, float, float, PosVector, PosVector
 def generatePointCloud(cloudSize : int, vectorSize : float, a: int, b: int) -> PointCloud:
     return  [generateVector(vectorSize, a, b) for _ in range(cloudSize)], \
             [generateVector(vectorSize, 0, 0.1) for _ in range(cloudSize)], \
-            [generateVector(vectorSize, 0, 0) for _ in range(cloudSize)]
+            [generateVector(vectorSize, 0, 0) for _ in range(cloudSize)], \
+            [generateVector(vectorSize, a, a) for _ in range(cloudSize)]
 
 def generateVector(size : int, a: int, b: int):
     return [np.random.uniform(a, b) for _ in range(size)]
 
-
 def og_V_Update_Func(pVector: PosVector, vVector: VelVector, phi1: float, phi2 : float,  p: PosVector, g: PosVector, a:int, b:int) -> VelVector:
     val = np.add(vVector, np.add(np.multiply(np.random.uniform(0, phi1), np.subtract(p, pVector)), np.multiply(np.random.uniform(0, phi2), np.subtract(g, pVector))))
     return val
-
-
 
 def pso(objectiveFunc: OptFunction,
         velFuction: VelFunction,
@@ -39,18 +37,24 @@ def pso(objectiveFunc: OptFunction,
         maxit: int) \
             -> PointCloud:
     
+    iterations = np.array([])
+    bestSolutionValue = np.array([])
+
     k = 5
     cloud = generatePointCloud(cloudSize,vectorSize,a,b)
-    p = [a,b] 
+    c = [a,b] 
+    cbest = objectiveFunc(c)
 
     for z in range(0, maxit):
         costs = [objectiveFunc(_) for _ in cloud[0]]
-        pbest = objectiveFunc(p)
 
         for i in range(0, len(cloud[0])):
-            # actualizamos pbest
-            if costs[i] < pbest:
-                p = cloud[0][i]
+            # actualizamos mejor resultado
+            if costs[i] < cbest:
+                c = cloud[0][i]
+
+            if costs[i] < objectiveFunc(cloud[3][i]):
+                cloud[3][i] = cloud[0][i]
 
             # obtenemos un set aleatorio de vecinos para la particula i
             aux = []
@@ -70,7 +74,7 @@ def pso(objectiveFunc: OptFunction,
 
         for i in range(0, len(cloud[0])):
             # actualizamos la funcion de velocidad y la posicion de cada particula 
-            cloud[1][i] = velFuction(cloud[0][i], cloud[1][i], phi1, phi2, p, cloud[2][i], a, b)
+            cloud[1][i] = velFuction(cloud[0][i], cloud[1][i], phi1, phi2, cloud[3][i], cloud[2][i], a, b)
             cloud[0][i] = np.add(cloud[0][i], cloud[1][i])
             
             # verificamos que las posiciones se encuentren dentro del intervalo delimitado
@@ -80,7 +84,22 @@ def pso(objectiveFunc: OptFunction,
                 if cloud[0][i][j] > b:
                     cloud[0][i][j] = b
 
-        print("Best:", p, " ", objectiveFunc(p))
+        cbest = objectiveFunc(c)
+        #print("Best:", c, " ", cbest)
+        iterations = np.append(iterations, z+1)
+        bestSolutionValue = np.append(bestSolutionValue, cbest)
+    
+    print("Best:", c, " ", cbest)
+    # Grafica de Mejor Soluciones por iteracion
+    plt.figure()
+    plt.plot(iterations, bestSolutionValue)
+    plt.title("PSO")
+    plt.xlabel("Número de Iteración")
+    plt.ylabel("E(S)")
+    plt.show()
+    
     return cloud
 
-pso(optF.ackley, og_V_Update_Func, 20, 2, 0.1, 0.8, -5, 5, 10000)
+pso(optF.rastrigin, og_V_Update_Func, 50, 2, 0.3, 0.8, -5.12, 5.12, 10000)
+pso(optF.threeHumpCamel, og_V_Update_Func, 50, 2, 0.3, 0.8, -5, 5, 10000)
+pso(optF.rosenbrocksBanana, og_V_Update_Func, 50, 2, 0.3, 0.8, -32, 32, 10000)
